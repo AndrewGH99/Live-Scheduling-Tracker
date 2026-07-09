@@ -1,4 +1,7 @@
-# RPDC Schedule & Tour-Coverage Tracker
+# Live Scheduling Tracker
+
+*Memphis RPDC schedule & tour-coverage tracker — roster in, coverage gaps out,
+one standalone weekly report.*
 
 Each FTC confirms the hours they can work (a simple Excel roster) → the tool
 pops out the polished weekly board **and** scores coverage against the USPS
