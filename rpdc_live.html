@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RPDC Live Tour Board</title>
+<script src="xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1720; --panel:#18222e; --panel2:#1e2a38; --line:#2b3a4a;
+    --ink:#e8eef4; --muted:#8fa3b5; --accent:#2e75b6; --accent2:#1f4e78;
+    --green:#2f9e44; --greenbg:#c6efce; --yellow:#f0b429; --yellowbg:#ffeb9c;
+    --orange:#e8720c; --orangebg:#ffcc99; --red:#d6336c; --redbg:#ffc7ce;
+    --black:#666; --blackbg:#808080; --sched:#ddebf7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:linear-gradient(90deg,var(--accent2),var(--accent));padding:14px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;font-weight:700}
+  header .sub{color:#cfe0f0;font-size:12px}
+  .tools{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);padding:7px 12px;border-radius:7px;cursor:pointer;font-size:13px}
+  button:hover{background:var(--accent);border-color:var(--accent)}
+  button.primary{background:var(--accent);border-color:var(--accent)}
+  .tabs{display:flex;gap:4px;padding:10px 20px 0;background:var(--bg);border-bottom:1px solid var(--line)}
+  .tab{padding:9px 16px;border:1px solid transparent;border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;color:var(--muted);font-weight:600}
+  .tab.active{background:var(--panel);color:var(--ink);border-color:var(--line)}
+  main{padding:18px 20px 60px}
+  .view{display:none}.view.active{display:block}
+  table{border-collapse:collapse;width:100%;font-size:13px;background:var(--panel);border-radius:8px;overflow:hidden}
+  th,td{border:1px solid var(--line);padding:6px 8px;text-align:center;vertical-align:middle}
+  th{background:var(--accent2);color:#fff;font-weight:600}
+  td.l{text-align:left}
+  .board td.sched{background:var(--sched);color:#0f1720;font-weight:600}
+  .name{font-weight:700;text-align:left}
+  .cov .lbl{background:#d9d9d9;color:#0f1720;text-align:right;font-weight:700}
+  .g{background:var(--greenbg)!important;color:#0f1720!important}
+  .y{background:var(--yellowbg)!important;color:#0f1720!important}
+  .o{background:var(--orangebg)!important;color:#0f1720!important}
+  .r{background:var(--redbg)!important;color:#0f1720!important}
+  .k{background:var(--blackbg)!important;color:#fff!important}
+  .sectlbl{font-weight:800;margin:20px 0 8px}
+  .gaphdr{background:#c00000;color:#fff;font-weight:800;padding:6px 10px;border-radius:6px;display:inline-block;margin:20px 0 8px}
+  .legend{margin-top:12px;color:var(--muted);font-size:12px}
+  .dot{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin:0 3px 0 10px}
+  .roster td[contenteditable]{background:var(--panel);cursor:text;min-width:70px}
+  .roster td[contenteditable]:focus{outline:2px solid var(--accent);background:var(--panel2)}
+  .roster .rowdel{cursor:pointer;color:var(--red);font-weight:900}
+  select{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:4px 6px;font-size:13px}
+  /* live */
+  .bigtile{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:16px}
+  .bigtile .now{font-size:12px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase}
+  .bigtile .tour{font-size:26px;font-weight:800;margin:2px 0 8px}
+  .bigtile .big{font-size:54px;font-weight:800;line-height:1}
+  .bigtile .st{font-size:15px;font-weight:700;margin-top:6px}
+  .bigtile.g{border-color:var(--green)}.bigtile.y{border-color:var(--yellow)}
+  .bigtile.o{border-color:var(--orange)}.bigtile.r{border-color:var(--red)}.bigtile.k{border-color:var(--blackbg)}
+  .mini{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+  .mtile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:center}
+  .mtile.cur{outline:2px solid var(--accent)}
+  .mtile .mh{font-size:11px;color:var(--muted);text-transform:uppercase}
+  .mtile .mn{font-size:26px;font-weight:800}
+  .mtile .ms{font-size:10px;color:var(--muted)}
+  .crew{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+  .pcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px}
+  .pcard .meta{flex:1;min-width:0}
+  .pcard .pn{font-weight:700}
+  .pcard .ps{font-size:12px;color:var(--muted)}
+  .pcard.exp{border-left:4px solid var(--yellow)}
+  .pcard.on{border-left:4px solid var(--green)}
+  .pcard.gap{border-left:4px solid var(--red);background:#241820}
+  .toggle{position:relative;width:52px;height:28px;flex:none}
+  .toggle input{opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:#3a4a5a;border-radius:20px;transition:.15s;cursor:pointer}
+  .slider:before{content:"";position:absolute;height:22px;width:22px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s}
+  .toggle input:checked + .slider{background:var(--green)}
+  .toggle input:checked + .slider:before{transform:translateX(24px)}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:20px;padding:2px 10px;font-size:11px;margin-left:6px}
+  .pill.exp{border-color:var(--yellow);color:var(--yellow)}
+  .pill.gap{border-color:var(--red);color:var(--red)}
+  #drop{border:2px dashed var(--line);border-radius:10px;padding:10px 14px;color:var(--muted);font-size:12px;margin-bottom:14px}
+  #drop.hot{border-color:var(--accent);color:var(--ink)}
+  .sheetbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+  .sheetbar input{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;flex:1;min-width:220px}
+  .sheetbar .st{font-size:12px;color:var(--muted)}
+  /* finalize week */
+  .finstrip{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .fchip{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;text-align:center;min-width:82px;user-select:none}
+  .fchip:hover{border-color:var(--accent)}
+  .fchip .fd{font-weight:700;font-size:13px}
+  .fchip .fn{font-size:22px;font-weight:800;line-height:1.1}
+  .fchip .fs{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .fchip.final{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+  .fchip.final .fs{color:var(--green);font-weight:800}
+  .finbar{display:flex;align-items:center;gap:12px;margin:2px 0 16px;flex-wrap:wrap}
+  .finbar .prog{font-size:13px;color:var(--muted)}
+  /* how to use */
+  .callout{background:var(--panel2);border-left:4px solid var(--accent);border-radius:8px;padding:14px 16px;margin:6px 0 20px}
+  .callout b{color:var(--ink)}
+  .steps{list-style:none;padding:0;margin:0;counter-reset:s;max-width:820px}
+  .steps li{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px 12px 54px;margin-bottom:10px}
+  .steps li:before{counter-increment:s;content:counter(s);position:absolute;left:13px;top:11px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-weight:800;text-align:center;line-height:28px}
+  .steps b{color:var(--ink)}
+  .steps .t{color:var(--muted);font-size:12.5px;margin-top:2px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>GH Logistics — Memphis RPDC · Live Tour Board</h1>
+    <div class="sub">Roster → tour coverage vs SOP station-priority · baseline 4 bodies/tour = all 4 stations</div>
+  </div>
+  <div class="tools">
+    <button id="btnImport">📥 Import roster (.xlsx)</button>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv" style="display:none">
+    <button id="btnReport" class="primary">📄 Export Weekly Report</button>
+    <button id="btnSaveRoster">💾 Save roster (.xlsx)</button>
+    <button id="btnReset">↺ Reset to crew</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-v="howto">📖 How to Use</div>
+  <div class="tab" data-v="live">🔴 Live Now</div>
+  <div class="tab" data-v="board">📊 Board &amp; Gaps</div>
+  <div class="tab" data-v="roster">📋 Roster (edit)</div>
+  <div class="tab" data-v="legend">ℹ️ Legend &amp; SOP</div>
+</div>
+
+<main>
+  <section id="howto" class="view active">
+    <div class="sectlbl">What this is for</div>
+    <div class="callout">
+      <b>Focus:</b> confirm FTC coverage for the Memphis RPDC across the 3 USPS tours × 7 days,
+      see exactly where you're short against the SOP station-priority model, then <b>finalize the
+      week and export one standalone report</b>. The goal is a finished, shareable weekly report —
+      not a tracker you must keep open forever.
+    </div>
+    <div class="sectlbl">How to use it — the 7-day process</div>
+    <ol class="steps">
+      <li><b>Load the roster.</b> On the <b>📋 Roster</b> tab you have three ways in:
+        connect a <b>shared Google Sheet</b> (HR keeps it current — paste its link once, then hit
+        <b>↻ Refresh</b> whenever someone's hired or quits), drag in an <b>INPUT_TEMPLATE.xlsx</b>,
+        or edit inline.
+        <div class="t">Fastest per-day entry: pick from the dropdown — Off / Tour 1 / Tour 2 / Tour 3 / Avail.</div></li>
+      <li><b>Review coverage.</b> On <b>📊 Board &amp; Gaps</b>, read the 3 tours × 7 days grid.
+        Green/Yellow/Orange/Red shows how many stations are manned; the Gaps table lists every
+        slot below 4, worst first.</li>
+      <li><b>Finalize each day.</b> At the top of Board &amp; Gaps, click a day chip once its
+        coverage is locked (or <b>Finalize all 7</b>). The counter tracks X/7 until the week is done.
+        <div class="t">This is the "walk the week" step — you confirm days deliberately, not one person at a time.</div></li>
+      <li><b>(Optional) Monitor live.</b> During a shift, use <b>🔴 Live Now</b> to toggle who's
+        physically on; it shows the current tour's live coverage and flags GAPs.</li>
+      <li><b>Export the report.</b> Click <b>📄 Export Weekly Report</b>. You get one self-contained
+        HTML file — open, print, email, or post it. It needs nothing installed and captures the
+        finalized week as a snapshot.</li>
+    </ol>
+    <div class="t" style="color:var(--muted)">Definitions of the 4 stations and the color scale are on the <b>ℹ️ Legend &amp; SOP</b> tab. Your edits and finalized days are saved in this browser automatically.</div>
+  </section>
+
+  <section id="live" class="view">
+    <div id="bigtile" class="bigtile"></div>
+    <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Today's scheduled coverage by tour (the plan):</div>
+    <div class="mini" id="mini"></div>
+    <div style="margin:6px 0 10px;color:var(--muted);font-size:12px">
+      Toggle who is physically on right now. <span class="pill exp">expected</span> = scheduled to cover the current tour ·
+      <span class="pill gap">GAP</span> = scheduled now but not online.
+    </div>
+    <div class="crew" id="crew"></div>
+  </section>
+
+  <section id="board" class="view">
+    <div class="sectlbl">Finalize the week — click each day once its coverage is locked</div>
+    <div class="finstrip" id="finstrip"></div>
+    <div class="finbar">
+      <span class="prog" id="finprog"></span>
+      <button id="btnFinalizeAll">✓ Finalize all 7</button>
+      <button id="btnClearFinal">Clear</button>
+      <button id="btnReport2" class="primary">📄 Export standalone report</button>
+    </div>
+    <div class="board" id="boardWrap"></div>
+    <div class="gaphdr" id="gaphdr">GAPS</div>
+    <div class="board" id="gapWrap"></div>
+    <div class="legend">
+      <span class="dot" style="background:var(--greenbg)"></span>≥4 all 4 stations
+      <span class="dot" style="background:var(--yellowbg)"></span>3 · #1·#2·#3
+      <span class="dot" style="background:var(--orangebg)"></span>2 · #1·#2
+      <span class="dot" style="background:var(--redbg)"></span>1 · #1 only
+      <span class="dot" style="background:var(--blackbg)"></span>0 · 24/7 breach
+      &nbsp;·&nbsp; A body counts toward a tour if on-clock ≥ half of it. 'Avail.' counts in every tour.
+    </div>
+  </section>
+
+  <section id="roster" class="view">
+    <div class="sheetbar">
+      <b>Shared roster (Google Sheet):</b>
+      <input id="sheetUrl" placeholder="Paste a link-viewable / published Google Sheet URL…">
+      <button id="btnConnect" class="primary">Connect &amp; Refresh</button>
+      <button id="btnRefresh">↻ Refresh</button>
+      <span class="st" id="sheetStatus"></span>
+    </div>
+    <div id="drop">Or drag an <b>INPUT_TEMPLATE.xlsx</b> here / edit cells below. Each person's hours = their confirmed availability. Local edits auto-save in this browser; a connected Google Sheet is the shared source HR maintains.</div>
+    <div class="roster" id="rosterWrap"></div>
+    <div style="margin-top:10px"><button id="btnAdd">＋ Add person</button></div>
+  </section>
+
+  <section id="legend" class="view">
+    <div class="sectlbl">The 4 stations — filled in this priority order (SOP)</div>
+    <table><tbody>
+      <tr><td class="name" style="width:230px">#1 · Inside/Outside Floor Lead</td><td class="l">ALWAYS staffed 24/7/365. Runs the interior floor (primary) + exterior docks (secondary), first responder inside & out, owns driver badging / PPE / check-in. The one station that can never be empty.</td></tr>
+      <tr><td class="name">#2 · Outside Docks</td><td class="l">Always staffed. Continuous dock patrol, hourly chock + trailer audits, meets every arriving truck, collects straps, enforces driver compliance (padlock / vest / closed-toe = fines), ensures trucks unhooked &amp; sealed before departure.</td></tr>
+      <tr><td class="name">#3 · Trailer Yard / Inbound</td><td class="l">Owns inbound trailer inspection (four-photo process), running yard inventory / audit, flags out-of-service units, daily technician check, moves trailers.</td></tr>
+      <tr><td class="name">#4 · Overflow / Support</td><td class="l">Activated only when a 4th body is available. Backs up #2 &amp; #3, carrier hunting (inbound engagement), trailer decaling, owns the 3 PM / 3 AM reactivated-trailer list.</td></tr>
+    </tbody></table>
+
+    <div class="sectlbl">Why Red / Yellow / Orange / Green — bodies on a tour → stations manned</div>
+    <table><thead><tr><th style="width:90px">Color</th><th style="width:80px">Bodies</th><th>What it means</th></tr></thead><tbody>
+      <tr><td class="g"><b>Green</b></td><td>4+</td><td class="l">All 4 stations manned — full operation with Overflow / surge capacity.</td></tr>
+      <tr><td class="y"><b>Yellow</b></td><td>3</td><td class="l">#1 · #2 · #3 covered; Overflow (#4) down. Core ops fine, no surge capacity.</td></tr>
+      <tr><td class="o"><b>Orange</b></td><td>2</td><td class="l">#1 · #2 only. Trailer Yard/Inbound (#3) unmanned — inbound four-photo inspection at risk.</td></tr>
+      <tr><td class="r"><b>Red</b></td><td>1</td><td class="l">Floor Lead (#1) only; docks unmanned. Critical single point of failure.</td></tr>
+      <tr><td class="k"><b>Black</b></td><td>0</td><td class="l">No one on the tour — breaches the 24/7 Station #1 mandate.</td></tr>
+    </tbody></table>
+
+    <div class="sectlbl">The 3 tours</div>
+    <table><thead><tr><th>Tour</th><th>Window</th><th>Kind</th></tr></thead><tbody>
+      <tr><td><b>Tour 1</b></td><td>11:00 PM – 6:00 AM</td><td>overnight</td></tr>
+      <tr><td><b>Tour 2</b></td><td>6:00 AM – 2:00 PM</td><td>day</td></tr>
+      <tr><td><b>Tour 3</b></td><td>2:00 PM – 10:00 PM</td><td>evening</td></tr>
+    </tbody></table>
+    <div class="legend">Baseline = 4 bodies per tour (all 4 stations). A body counts toward a tour if on-clock for at least half of it. “Avail.” = the 24/7 lead, counts in every tour.</div>
+  </section>
+</main>
+
+<script>
+const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const BASELINE=4;
+const FTC="Facilities Transportation Coordinator";
+const TOURS=[
+  {name:"Tour 1",lbl:"11p–6a",win:[23,6]},
+  {name:"Tour 2",lbl:"6a–2p",win:[6,14]},
+  {name:"Tour 3",lbl:"2p–10p",win:[14,22]},
+];
+const COVER_FRACTION=0.5;
+// Fictional demo crew — same shift patterns as a real 11-person site.
+// Load your real roster via Excel drop or the shared Google Sheet.
+const DEFAULT_CREW=[
+ ["Jordan Rivers","","Onsite Lead (24/7 Day & Night)","Day & Night","Inside/Outside Floor Lead",["Avail.","Avail.","Avail.","Avail.","Avail.","Avail.","Avail."],"Available daily; flexes to cover weekends."],
+ ["Casey Brooks","",FTC,"Day","Outside Docks",["9a–6p","9a–6p","9a–6p","9a–6p","9a–6p","",""],"Day-shift supervisor per SOP."],
+ ["Devon Hayes","",FTC,"Day","Trailer Yard/Inbound",["","7a–5p","7a–5p","7a–5p","7a–5p","7a–5p",""],"Tue–Sat 7 AM–5 PM."],
+ ["Morgan Cole","",FTC,"Day","Outside Docks",["","","6a–4p","6a–4p","6a–4p","6a–4p","6a–4p"],"Day shift, Wed–Sun."],
+ ["Taylor Brant","",FTC,"Day","Overflow",["8a–5p","8a–5p","8a–5p","8a–5p","","","8a–5p"],"New hire (starts Mon)."],
+ ["Skyler Dunn","",FTC,"Swing","Inside/Outside Floor Lead",["2p–11p","2p–11p","2p–11p","2p–11p","","","2p–11p"],"Swing 2 PM–11 PM."],
+ ["Riley Vaughn","",FTC,"Night","Trailer Yard/Inbound",["10p–8a","10p–8a","10p–8a","10p–8a","10p–8a","10p–8a",""],"Mon–Sat 10 PM–8 AM."],
+ ["Kai Emerson","",FTC,"Night","Outside Docks",["10–11p / 8–9a","10–11p / 8–9a","10–11p / 8–9a","10–11p / 8–9a","10–11p / 8–9a","10–11p / 8–9a",""],"6-day schedule, Mon–Sat. NOTE: split cell covers no full tour — confirm real hours."],
+ ["Blake Connor","",FTC,"Night","Inside/Outside Floor Lead",["","","10–11p / 8–9a","10–11p / 8–9a","10–11p / 8–9a","10–11p / 8–9a","10–11p / 8–9a"],"Wed–Sun. NOTE: split cell covers no full tour — confirm real hours."],
+ ["Marley West","",FTC,"Night","Overflow",["","","6p–4a","6p–4a","6p–4a","6p–4a","6p–4a"],"6 PM–4 AM."],
+ ["Avery Nash","",FTC,"Night","Trailer Yard/Inbound",["10:30p–7a","10:30p–7a","10:30p–7a","10:30p–7a","10:30p–7a","",""],"BOL / clerk focus. Can fill any station per SOP."],
+];
+function crewToObj(c){return {name:c[0],contact:c[1],role:c[2],shift:c[3],station:c[4],days:c[5].slice(),notes:c[6]};}
+
+// ---- shared logic (mirrors convert.py) ----
+function parseClock(tok,inherit){tok=String(tok).trim().toLowerCase().replace(/\s/g,'');let mer=null;if(tok.endsWith('a')){mer='a';tok=tok.slice(0,-1);}else if(tok.endsWith('p')){mer='p';tok=tok.slice(0,-1);}let val;if(tok.includes(':')){const p=tok.split(':');val=parseInt(p[0],10)+parseInt(p[1],10)/60;}else val=parseInt(tok,10);const use=mer||inherit;const h12=val%12;let h24;if(use==='p')h24=h12+12;else if(use==='a')h24=h12;else h24=val;return {h24,mer};}
+function segRange(seg){const parts=seg.split(/[–—-]/).map(s=>s.trim()).filter(Boolean);if(parts.length!==2)return null;const end=parseClock(parts[1],null);const start=parseClock(parts[0],end.mer);return {s:start.h24,e:end.h24};}
+function segHours(seg){const r=segRange(seg);if(!r)return 0;let d=r.e-r.s;if(d<=0)d+=24;return d;}
+const OFF_TOKENS=new Set(["","off","x","-","n","no","none"]);
+function norm(v){return v==null?"":String(v).trim().toLowerCase();}
+function isSched(v){return !OFF_TOKENS.has(norm(v));}
+function explicitTours(v){const s=norm(v);if(OFF_TOKENS.has(s))return [];const m=[...s.matchAll(/\bt(?:our)?\s*([123])\b/g)].map(x=>+x[1]-1);return m.length?[...new Set(m)].sort():null;}
+function cellHours(v){const et=explicitTours(v);if(et!==null)return Math.round(et.reduce((a,i)=>a+tourLen(TOURS[i].win),0)*100)/100;const s=v==null?"":String(v).trim();if(!s||!/\d/.test(s)||!/[–—-]/.test(s))return 0;let t=0;for(const seg of s.split('/'))t+=segHours(seg);return Math.round(t*100)/100;}
+function ivs(s,e){return e>s?[[s,e]]:[[s,24],[0,e]];}
+function tourLen(win){return ivs(win[0],win[1]).reduce((a,x)=>a+x[1]-x[0],0);}
+function tourOverlap(cell,win){if(!isSched(cell))return 0;const s=String(cell).trim();const tws=ivs(win[0],win[1]);if(!/[–—-]/.test(s))return tourLen(win);let t=0;for(const seg of s.split('/')){const r=segRange(seg);if(!r)continue;for(const pv of ivs(r.s,r.e))for(const tw of tws)t+=Math.max(0,Math.min(pv[1],tw[1])-Math.max(pv[0],tw[0]));}return t;}
+function coversTour(cell,ti){const et=explicitTours(cell);if(et!==null)return et.includes(ti);const win=TOURS[ti].win;return tourOverlap(cell,win)>=COVER_FRACTION*tourLen(win);}
+function covClass(n){return n>=4?'g':n===3?'y':n===2?'o':n===1?'r':'k';}
+function covWord(n){return n>=4?'FULL':n===3?'LIGHT':n===2?'SHORT':n===1?'CRITICAL':'NO COVERAGE';}
+function stationsLabel(n){return n>=4?'All 4 stations manned':n===3?'#1·#2·#3 (Overflow down)':n===2?'#1·#2 (Yard+Overflow down)':n===1?'#1 Floor Lead only — CRITICAL':'NONE — breaches 24/7 mandate';}
+function tourCount(day,ti){return roster.reduce((n,p)=>n+(coversTour(p.days[day],ti)?1:0),0);}
+
+// ---- state ----
+let roster=load();
+let online=loadOnline();
+function load(){try{const j=JSON.parse(localStorage.getItem('rpdc_roster'));if(Array.isArray(j)&&j.length)return j;}catch(e){}return DEFAULT_CREW.map(crewToObj);}
+function save(){localStorage.setItem('rpdc_roster',JSON.stringify(roster));}
+function loadOnline(){try{return JSON.parse(localStorage.getItem('rpdc_online'))||{};}catch(e){return{};}}
+function saveOnline(){localStorage.setItem('rpdc_online',JSON.stringify(online));}
+let finalized=loadFinal();
+function loadFinal(){try{return JSON.parse(localStorage.getItem('rpdc_final'))||{};}catch(e){return{};}}
+function saveFinal(){localStorage.setItem('rpdc_final',JSON.stringify(finalized));}
+function dayWorst(d){return Math.min(...TOURS.map((t,ti)=>tourCount(d,ti)));}
+
+// ---- BOARD ----
+function renderBoard(){
+  const head=["Employee","Contact/Badge","Role","Shift","Station",...DAYS,"Notes","Wk Hrs"];
+  let h='<table><thead><tr>'+head.map(x=>`<th>${x}</th>`).join('')+'</tr></thead><tbody>';
+  for(const p of roster){
+    const wk=p.days.reduce((s,d)=>s+cellHours(d),0);
+    h+='<tr>';
+    h+=`<td class="name">${esc(p.name)}</td><td>${esc(p.contact)}</td><td class="l">${esc(p.role)}</td><td>${esc(p.shift)}</td><td class="l">${esc(p.station)}</td>`;
+    p.days.forEach(d=>h+=`<td class="${isSched(d)?'sched':''}">${esc(d||'')}</td>`);
+    h+=`<td class="l">${esc(p.notes)}</td><td><b>${wk?Math.round(wk*100)/100:0}</b></td>`;
+    h+='</tr>';
+  }
+  // tour coverage rows
+  const covrow=(t,ti)=>{const arr=DAYS.map((_,d)=>tourCount(d,ti));
+    return `<tr class="cov"><td colspan="4" class="lbl">${t.name} ${t.lbl} →</td><td class="lbl"></td>`+
+      arr.map(n=>`<td class="${covClass(n)}">${n}</td>`).join('')+`<td colspan="2"></td></tr>`;};
+  h+=`<tr><td colspan="14" style="text-align:left;font-weight:700;background:var(--panel2)">TOUR COVERAGE (bodies on-tour → stations manned)</td></tr>`;
+  h+=TOURS.map((t,ti)=>covrow(t,ti)).join('');
+  h+='</tbody></table>';
+  document.getElementById('boardWrap').innerHTML=h;
+
+  // gaps
+  const gaps=[];
+  TOURS.forEach((t,ti)=>DAYS.forEach((day,d)=>{const n=tourCount(d,ti);if(n<BASELINE)gaps.push({n,t:t.name,w:t.lbl,day,short:BASELINE-n});}));
+  gaps.sort((a,b)=>a.n-b.n||DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
+  document.getElementById('gaphdr').textContent=gaps.length?`GAPS — ${gaps.length} tour×day slots short of ${BASELINE} (worst first)`:`GAPS — none 🟢`;
+  if(!gaps.length){document.getElementById('gapWrap').innerHTML='<div style="padding:10px;color:var(--green)">Every tour × day meets the 4-body baseline.</div>';}
+  else{
+    let g='<table><thead><tr><th>Tour</th><th>Window</th><th>Day</th><th>Bodies</th><th>Short by</th><th>Stations manned</th></tr></thead><tbody>';
+    gaps.forEach(x=>{g+=`<tr><td>${x.t}</td><td>${x.w}</td><td>${x.day}</td><td class="${covClass(x.n)}"><b>${x.n}</b></td><td>${x.short}</td><td class="l">${stationsLabel(x.n)}</td></tr>`;});
+    g+='</tbody></table>';document.getElementById('gapWrap').innerHTML=g;
+  }
+}
+
+// ---- FINALIZE WEEK ----
+function renderFinalize(){
+  const strip=document.getElementById('finstrip');
+  if(!strip)return;
+  strip.innerHTML=DAYS.map(d=>{const n=dayWorst(d);const cls=covClass(n);const fin=!!finalized[d];
+    return `<div class="fchip ${fin?'final':''}" data-day="${d}"><div class="fd">${d}</div>
+      <div class="fn ${cls}" style="color:${colorOf(cls)}">${n}</div>
+      <div class="fs">${fin?'✓ final':'draft'}</div></div>`;}).join('');
+  strip.querySelectorAll('.fchip').forEach(ch=>ch.addEventListener('click',()=>{const d=ch.dataset.day;finalized[d]=!finalized[d];saveFinal();renderFinalize();}));
+  const cnt=DAYS.filter(d=>finalized[d]).length;
+  document.getElementById('finprog').innerHTML=`<b style="color:var(--ink)">${cnt}/7</b> days finalized`+(cnt===7?' — week complete ✅':'');
+}
+
+// ---- ROSTER EDIT ----
+function renderRoster(){
+  const head=["","Employee","Contact/Badge","Role","Shift","Station",...DAYS,"Notes"];
+  let h='<table><thead><tr>'+head.map(x=>`<th>${x}</th>`).join('')+'</tr></thead><tbody>';
+  roster.forEach((p,i)=>{
+    h+=`<tr data-i="${i}"><td class="rowdel" data-del="${i}">✕</td>`;
+    h+=`<td contenteditable data-f="name" class="l">${esc(p.name)}</td>`;
+    h+=`<td contenteditable data-f="contact">${esc(p.contact)}</td>`;
+    h+=`<td contenteditable data-f="role" class="l">${esc(p.role)}</td>`;
+    h+=`<td data-f="shift"><select>${["Day","Swing","Night","Day & Night"].map(o=>`<option${o===p.shift?' selected':''}>${o}</option>`).join('')}</select></td>`;
+    h+=`<td data-f="station"><select>${["Inside/Outside Floor Lead","Outside Docks","Trailer Yard/Inbound","Overflow"].map(o=>`<option${o===p.station?' selected':''}>${o}</option>`).join('')}</select></td>`;
+    p.days.forEach((d,di)=>h+=`<td contenteditable data-day="${di}">${esc(d||'')}</td>`);
+    h+=`<td contenteditable data-f="notes" class="l">${esc(p.notes)}</td></tr>`;
+  });
+  h+='</tbody></table>';
+  const w=document.getElementById('rosterWrap');w.innerHTML=h;
+  w.querySelectorAll('[contenteditable]').forEach(td=>{td.addEventListener('blur',()=>{const i=+td.closest('tr').dataset.i;if(td.dataset.day!=null)roster[i].days[+td.dataset.day]=td.innerText.trim();else roster[i][td.dataset.f]=td.innerText.trim();save();refreshAll();});});
+  w.querySelectorAll('select').forEach(sel=>{sel.addEventListener('change',()=>{const i=+sel.closest('tr').dataset.i;roster[i][sel.closest('td').dataset.f]=sel.value;save();refreshAll();});});
+  w.querySelectorAll('[data-del]').forEach(x=>x.addEventListener('click',()=>{if(confirm('Remove '+roster[+x.dataset.del].name+'?')){roster.splice(+x.dataset.del,1);save();refreshAll();}}));
+}
+
+// ---- LIVE NOW ----
+function nowInfo(){const d=new Date();const wd=(d.getDay()+6)%7;const hr=d.getHours()+d.getMinutes()/60;return{d,wd,hr};}
+function currentTour(hr){return TOURS.find(t=>{const s=t.win[0],e=t.win[1];return e>s?(hr>=s&&hr<e):(hr>=s||hr<e);})||null;}
+function renderLive(){
+  const {d,wd,hr}=nowInfo();
+  const ct=currentTour(hr);
+  const cti=ct?TOURS.indexOf(ct):-1;
+  const onlineCount=roster.reduce((n,p)=>n+(online[p.name]?1:0),0);
+  const bt=document.getElementById('bigtile');
+  if(ct){
+    const cls=covClass(onlineCount);
+    bt.className='bigtile '+cls;
+    bt.innerHTML=`<div class="now">🔴 LIVE · ${d.toLocaleString([], {weekday:'long',hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="tour">Current: ${ct.name} <span style="color:var(--muted);font-weight:600">(${ct.lbl})</span></div>
+      <div class="big ${cls}" style="color:${colorOf(cls)}">${onlineCount}</div>
+      <div class="st" style="color:${colorOf(cls)}">${covWord(onlineCount)} — ${stationsLabel(onlineCount)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">bodies online now vs baseline ${BASELINE}</div>`;
+  } else {
+    bt.className='bigtile k';
+    bt.innerHTML=`<div class="now">🔴 LIVE · ${d.toLocaleString([], {weekday:'long',hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="tour">Between tours</div>
+      <div class="st">10–11 PM seam (Tour 3 ends 10p, Tour 1 starts 11p). ${onlineCount} online.</div>`;
+  }
+  // mini tiles: today's scheduled coverage per tour
+  document.getElementById('mini').innerHTML=TOURS.map((t,ti)=>{const n=tourCount(wd,ti);const cls=covClass(n);
+    return `<div class="mtile ${ct&&ct.name===t.name?'cur':''}"><div class="mh">${t.name} · ${t.lbl}${ct&&ct.name===t.name?' · NOW':''}</div>
+      <div class="mn ${cls}" style="color:${colorOf(cls)}">${n}</div><div class="ms">${stationsLabel(n)}</div></div>`;}).join('');
+  // crew cards
+  let h='';
+  roster.slice().sort((a,b)=>{const ea=ct?coversTour(a.days[wd],cti):false,eb=ct?coversTour(b.days[wd],cti):false;if(ea!==eb)return ea?-1:1;return a.name.localeCompare(b.name);}).forEach(p=>{
+    const exp=ct?coversTour(p.days[wd],cti):false;const on=!!online[p.name];
+    let cls=on?'on':exp?'exp':'';if(exp&&!on)cls='gap';
+    let pill=exp&&!on?'<span class="pill gap">GAP</span>':exp?'<span class="pill exp">expected</span>':'';
+    h+=`<div class="pcard ${cls}"><label class="toggle"><input type="checkbox" data-on="${esc(p.name)}" ${on?'checked':''}><span class="slider"></span></label>
+      <div class="meta"><div class="pn">${esc(p.name)} ${pill}</div>
+      <div class="ps">${esc(p.shift)} · ${esc(p.station)} · today: ${esc(p.days[wd]||'off')}</div></div></div>`;
+  });
+  document.getElementById('crew').innerHTML=h;
+  document.querySelectorAll('[data-on]').forEach(cb=>cb.addEventListener('change',()=>{online[cb.dataset.on]=cb.checked;saveOnline();renderLive();}));
+}
+function colorOf(cls){return cls==='g'?'var(--green)':cls==='y'?'var(--yellow)':cls==='o'?'var(--orange)':cls==='r'?'var(--red)':'#fff';}
+
+// ---- import / export ----
+function aoaToRoster(aoa){
+  let hr=aoa.findIndex(row=>row.map(c=>String(c).toLowerCase().trim()).includes('employee name'));
+  if(hr<0){alert("Couldn't find an 'Employee Name' header row.");return null;}
+  const H=aoa[hr].map(c=>String(c).toLowerCase().trim());
+  const gi=(row,...names)=>{for(const n of names){const k=H.indexOf(n);if(k>=0)return row[k];}return "";};
+  const out=[];
+  for(let i=hr+1;i<aoa.length;i++){const row=aoa[i];const nm=gi(row,'employee name');if(!nm||!String(nm).trim())continue;
+    out.push({name:String(nm).trim(),contact:gi(row,'contact/badge','contact','badge'),role:gi(row,'role')||FTC,shift:gi(row,'shift')||"Day",station:gi(row,'station')||"",days:DAYS.map(d=>String(gi(row,d.toLowerCase())||"").trim()),notes:gi(row,'notes')||""});}
+  if(!out.length){alert("No people found in the roster.");return null;}
+  return out;
+}
+function importXLSX(file){
+  const r=new FileReader();
+  r.onload=e=>{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const sn=wb.SheetNames.includes('Roster')?'Roster':wb.SheetNames[0];
+    const out=aoaToRoster(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:""}));
+    if(out){roster=out;save();refreshAll();alert('Loaded '+out.length+' people.');}
+  };
+  r.readAsArrayBuffer(file);
+}
+// ---- shared Google Sheet source ----
+function sheetCsvUrl(url){
+  url=url.trim();
+  if(/output=csv/.test(url)||/tqx=out:csv/.test(url))return url;          // already a CSV endpoint
+  const m=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);               // a normal /edit link
+  if(m){let gid='0';const g=url.match(/[#&?]gid=(\d+)/);if(g)gid=g[1];
+    return `https://docs.google.com/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv&gid=${gid}`;}
+  return url;                                                             // any other CSV url (e.g. local test)
+}
+function setSheetStatus(t){const s=document.getElementById('sheetStatus');if(s)s.textContent=t;}
+function fetchSheet(url,silent){
+  setSheetStatus('Loading…');
+  return fetch(sheetCsvUrl(url)).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.text();}).then(txt=>{
+    const wb=XLSX.read(txt,{type:'string'});
+    const aoa=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:""});
+    const out=aoaToRoster(aoa);if(!out)throw new Error('no roster rows found');
+    roster=out;save();localStorage.setItem('rpdc_sheet_url',url);refreshAll();
+    setSheetStatus(`✓ ${out.length} loaded from Google Sheet · ${new Date().toLocaleTimeString()}`);
+  }).catch(e=>{
+    setSheetStatus('⚠ '+e.message+' — is the sheet link-viewable / published?');
+    if(!silent)alert('Could not load sheet: '+e.message+'\\n\\nMake sure the sheet is shared "anyone with the link can view", or File → Share → Publish to web → CSV.');
+  });
+}
+function saveRosterXLSX(){
+  const head=["Employee Name","Contact/Badge","Role","Shift","Station",...DAYS,"Notes"];
+  const aoa=[head,...roster.map(p=>[p.name,p.contact,p.role,p.shift,p.station,...p.days,p.notes])];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:18},{wch:14},{wch:34},{wch:13},{wch:24},...DAYS.map(()=>({wch:14})),{wch:40}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Roster");XLSX.writeFile(wb,"INPUT_TEMPLATE.xlsx");
+}
+
+// ---- STANDALONE REPORT ----
+function buildReportHTML(){
+  const now=new Date();
+  const stamp=now.toLocaleString([], {weekday:'short',year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  const finCount=DAYS.filter(d=>finalized[d]).length;
+  const gaps=[];TOURS.forEach((t,ti)=>DAYS.forEach((day,d)=>{const n=tourCount(d,ti);if(n<BASELINE)gaps.push({n,t:t.name,w:t.lbl,day,short:BASELINE-n});}));
+  gaps.sort((a,b)=>a.n-b.n||DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
+  const dayHead=DAYS.map(d=>`<th>${d}<br><span class="${finalized[d]?'fin':'drf'}">${finalized[d]?'FINAL':'draft'}</span></th>`).join('');
+  const covRows=TOURS.map((t,ti)=>`<tr><th class="l">${t.name} · ${t.lbl}</th>`+DAYS.map((_,d)=>{const n=tourCount(d,ti);return `<td class="c${covClass(n)}">${n}</td>`;}).join('')+`</tr>`).join('');
+  const gapRows=gaps.length?gaps.map(x=>`<tr><td>${x.t}</td><td>${x.w}</td><td>${x.day}</td><td class="c${covClass(x.n)}"><b>${x.n}</b></td><td>${x.short}</td><td class="l">${stationsLabel(x.n)}</td></tr>`).join(''):`<tr><td colspan="6" class="ok">No gaps — every tour × day meets the 4-body baseline.</td></tr>`;
+  const rosterRows=roster.map(p=>{const wk=p.days.reduce((s,d)=>s+cellHours(d),0);return `<tr><td class="l"><b>${esc(p.name)}</b></td><td>${esc(p.shift)}</td><td class="l">${esc(p.station)}</td>`+p.days.map((d,di)=>`<td class="${isSched(d)?'sc':''}">${esc(d||'')}</td>`).join('')+`<td>${wk?Math.round(wk*100)/100:0}</td></tr>`;}).join('');
+  const css=`*{box-sizing:border-box}body{font:13px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;background:#fff;margin:24px;max-width:1100px}
+  h1{font-size:20px;margin:0 0 2px}h2{font-size:15px;margin:26px 0 8px;border-bottom:2px solid #1F4E78;padding-bottom:4px;color:#1F4E78}
+  .meta{color:#555;font-size:12px;margin-bottom:4px}.badge{display:inline-block;background:#eef3f9;border:1px solid #cfe0f0;border-radius:20px;padding:2px 10px;font-size:11px;margin-right:6px}
+  table{border-collapse:collapse;width:100%;margin-top:6px}th,td{border:1px solid #ccc;padding:5px 7px;text-align:center}th{background:#1F4E78;color:#fff}.l{text-align:left}
+  .cg{background:#c6efce}.cy{background:#ffeb9c}.co{background:#ffcc99}.cr{background:#ffc7ce}.ck{background:#808080;color:#fff}
+  .sc{background:#ddebf7}.fin{color:#2f9e44;font-weight:800;font-size:10px}.drf{color:#999;font-size:10px}.ok{color:#2f9e44;text-align:left;padding:10px}
+  .defs td{text-align:left}@media print{body{margin:0}h2{page-break-after:avoid}}`;
+  const stationRows=[
+    ["#1 · Inside/Outside Floor Lead","ALWAYS staffed 24/7/365. Interior floor + docks, first responder, driver badging/PPE/check-in. Never empty."],
+    ["#2 · Outside Docks","Dock patrol, hourly chock + trailer audits, meets every truck, straps, driver-compliance fines, trucks sealed before departure."],
+    ["#3 · Trailer Yard / Inbound","Inbound four-photo inspection, yard audit, OOS flags, daily technician check, trailer moves."],
+    ["#4 · Overflow / Support","Only when a 4th body is free. Backs up #2/#3, carrier hunting, decaling, 3 PM/3 AM reactivated-trailer list."]
+  ].map(r=>`<tr><td class="l"><b>${r[0]}</b></td><td class="l">${r[1]}</td></tr>`).join('');
+  const colorRows=[["cg","Green","4+","All 4 stations manned — full operation with surge capacity."],["cy","Yellow","3","#1·#2·#3 covered; Overflow (#4) down. No surge capacity."],["co","Orange","2","#1·#2 only. Trailer Yard/Inbound (#3) unmanned — inbound at risk."],["cr","Red","1","Floor Lead (#1) only; docks unmanned. Critical."],["ck","Black","0","No one — breaches the 24/7 Station #1 mandate."]].map(r=>`<tr><td class="${r[0]}"><b>${r[1]}</b></td><td>${r[2]}</td><td class="l">${r[3]}</td></tr>`).join('');
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RPDC Weekly Report — ${stamp}</title><style>${css}</style></head><body>
+  <h1>GH Logistics — Memphis RPDC · Weekly Tour-Coverage Report</h1>
+  <div class="meta">Generated ${stamp} · Baseline 4 bodies/tour (all 4 stations) · scored per SOP station-priority</div>
+  <div><span class="badge">${finCount}/7 days finalized${finCount===7?' ✅':''}</span><span class="badge">${roster.length} personnel</span><span class="badge">${gaps.length} coverage gap${gaps.length===1?'':'s'}</span></div>
+  <p class="meta" style="margin-top:8px"><b>How to read this:</b> coverage is scored per USPS tour against the SOP station-priority model — more bodies on a tour = more of the 4 stations manned. Green = all 4 stations, down to Red = Floor Lead only. The Gaps table is where staffing is short. Finalized days were confirmed by the scheduler; drafts were not.</p>
+  <h2>Tour Coverage (bodies on-tour → stations manned)</h2>
+  <table><thead><tr><th class="l">Tour</th>${dayHead}</tr></thead><tbody>${covRows}</tbody></table>
+  <h2>Gaps — where you are short of 4 (worst first)</h2>
+  <table><thead><tr><th>Tour</th><th>Window</th><th>Day</th><th>Bodies</th><th>Short by</th><th>Stations manned</th></tr></thead><tbody>${gapRows}</tbody></table>
+  <h2>Roster</h2>
+  <table><thead><tr><th class="l">Employee</th><th>Shift</th><th class="l">Station</th>${DAYS.map(d=>`<th>${d}</th>`).join('')}<th>Wk Hrs</th></tr></thead><tbody>${rosterRows}</tbody></table>
+  <h2>Legend — the 4 stations (SOP, priority order)</h2>
+  <table class="defs"><tbody>${stationRows}</tbody></table>
+  <h2>Why Red / Yellow / Orange / Green</h2>
+  <table class="defs"><thead><tr><th>Color</th><th>Bodies</th><th class="l">Meaning</th></tr></thead><tbody>${colorRows}</tbody></table>
+  <p class="meta" style="margin-top:20px">Tours: Tour 1 = 11pm–6am · Tour 2 = 6am–2pm · Tour 3 = 2pm–10pm. A body counts toward a tour if on-clock ≥ half of it. Standalone snapshot — safe to print or share.</p>
+  </body></html>`;
+}
+function downloadReport(){
+  const html=buildReportHTML();
+  const blob=new Blob([html],{type:'text/html'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  const d=new Date();const stamp=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  a.download=`RPDC_Week_Report_${stamp}.html`;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+// ---- wiring ----
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+function refreshAll(){renderBoard();renderFinalize();renderRoster();renderLive();}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.getElementById(t.dataset.v).classList.add('active');}));
+document.getElementById('btnImport').onclick=()=>document.getElementById('file').click();
+document.getElementById('file').onchange=e=>{if(e.target.files[0])importXLSX(e.target.files[0]);};
+document.getElementById('btnSaveRoster').onclick=saveRosterXLSX;
+document.getElementById('btnReport').onclick=downloadReport;
+document.getElementById('btnReport2').onclick=downloadReport;
+document.getElementById('btnFinalizeAll').onclick=()=>{DAYS.forEach(d=>finalized[d]=true);saveFinal();renderFinalize();};
+document.getElementById('btnClearFinal').onclick=()=>{finalized={};saveFinal();renderFinalize();};
+document.getElementById('btnReset').onclick=()=>{if(confirm('Reset roster to the built-in crew?')){roster=DEFAULT_CREW.map(crewToObj);localStorage.removeItem('rpdc_sheet_url');save();refreshAll();}};
+document.getElementById('btnConnect').onclick=()=>{const u=document.getElementById('sheetUrl').value.trim();if(u)fetchSheet(u);else alert('Paste a Google Sheet URL first.');};
+document.getElementById('btnRefresh').onclick=()=>{const u=(localStorage.getItem('rpdc_sheet_url')||document.getElementById('sheetUrl').value).trim();if(u)fetchSheet(u);else alert('No Google Sheet connected yet — paste a URL and Connect.');};
+document.getElementById('btnAdd').onclick=()=>{roster.push({name:"New Person",contact:"",role:FTC,shift:"Day",station:"Overflow",days:["","","","","","",""],notes:""});save();renderRoster();};
+const drop=document.getElementById('drop');
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('hot');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('hot');}));
+drop.addEventListener('drop',e=>{if(e.dataTransfer.files[0])importXLSX(e.dataTransfer.files[0]);});
+refreshAll();
+// auto-load the shared Google Sheet if one was connected before
+(function(){const u=localStorage.getItem('rpdc_sheet_url');if(u){document.getElementById('sheetUrl').value=u;fetchSheet(u,true);}})();
+setInterval(renderLive,60000);
+</script>
+</body>
+</html>
