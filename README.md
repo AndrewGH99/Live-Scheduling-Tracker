@@ -3,6 +3,10 @@
 *Memphis RPDC schedule & tour-coverage tracker — roster in, coverage gaps out,
 one standalone weekly report.*
 
+**Live app:** <https://andrewgh99.github.io/Live-Scheduling-Tracker/> ·
+**Printable guide:** [HOW_TO_USE.pdf](HOW_TO_USE.pdf)
+(regenerate with `python3 make_guide.py` after workflow changes)
+
 Each FTC confirms the hours they can work (a simple Excel roster) → the tool
 pops out the polished weekly board **and** scores coverage against the USPS
 tours and the SOP station-priority model, so you can see exactly **where you're
