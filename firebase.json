@@ -1,0 +1,12 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/*.py",
+      "private/**",
+      "**/node_modules/**"
+    ]
+  }
+}
